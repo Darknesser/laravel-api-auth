@@ -18,7 +18,7 @@ class Middleware
     {
         $this->config = config('api_auth');
     }
-    
+
     /**
      * @param Request  $request
      * @param \Closure $next
@@ -35,11 +35,8 @@ class Middleware
             // 得到 api token
             $token = $request->hasHeader('api-token') ? $request->header('api-token') : $request->get('api-token');
 
-            // 检查是否存在token
-            $this->tokenExistCheck($token);
-
             // 得到 header 、 payload 、 signature 三段字符串
-            list($header_string, $payload_string, $signature) = explode(".", $token);
+            list($header_string, $payload_string, $signature) = $this->tokenCheck($token);
 
             list($header, $payload, $alg) = array_values($this->parseParams($header_string, $payload_string));
 
@@ -55,17 +52,22 @@ class Middleware
     }
 
     /**
-     * 检查是否存在token
+     * 检查token
      *
      * @param string  $token
      *
      * @throws InvalidTokenException
      */
-    public function tokenExistCheck($token)
+    public function tokenCheck(string $token)
     {
         if (!$token) {
-            throw new InvalidTokenException('require token !');
+            throw new InvalidTokenException('require token!');
         }
+        $array = explode(".", $token);
+        if (count($array) !== 3) {
+            throw new InvalidTokenException('invalid token!');
+        }
+        return $array;
     }
 
     /**
@@ -92,27 +94,31 @@ class Middleware
             !isset($payload['echostr']) ||
             !isset($payload['ak'])
         ) {
-            throw new InvalidTokenException('invalid token !');
+            throw new InvalidTokenException('invalid token!');
         }
 
         if (!isset($this->config['roles'][$payload['ak']])) {
-            throw new AccessKeyException('access key invalid !');
+            throw new AccessKeyException('access key invalid!');
         }
 
         if (!isset($this->config['signature_methods'][$header['alg']])) {
-            throw new SignatureMethodException($header['alg'] . ' signatures are not supported !');
+            throw new SignatureMethodException($header['alg'] . 'signatures are not supported!');
         }
 
         $alg = $this->config['signature_methods'][$header['alg']];
 
         if (!class_exists($alg)) {
-            throw new SignatureMethodException($header['alg'] . ' signatures method configuration error !');
+            throw new SignatureMethodException($header['alg'] . 'signatures method configuration error!');
         }
 
         $alg = new $alg;
 
         if (!$alg instanceof SignatureInterface) {
-            throw new SignatureMethodException($header['alg'] . ' signatures method configuration error !');
+            throw new SignatureMethodException($header['alg'] . 'signatures method configuration error!');
+        }
+
+        if (abs(time() - $payload['timestamp']) > $this->config['timeout']) {
+            throw new InvalidTokenException('token is beyond time allowed!');
         }
 
         // 检查参数 --end
@@ -133,7 +139,7 @@ class Middleware
     public function signatureCheck(SignatureInterface $alg, string $signature_string, string $secret, $signature): void
     {
         if (!$alg::check($signature_string, $secret, $signature)) {
-            throw new InvalidTokenException('invalid token !');
+            throw new InvalidTokenException('invalid token!');
         }
     }
 
