@@ -186,7 +186,7 @@ class Middleware
      */
     public static function default_skip_handler(Request $request, array $urls = []): bool
     {
-        if (in_array($request->url(), $urls)) {
+        if (in_array($request->getHost(), $urls)) {
             return true;
         }
 
