@@ -36,7 +36,7 @@ class Middleware
             $token = $request->hasHeader('api-token') ? $request->header('api-token') : $request->get('api-token');
 
             // 得到 header 、 payload 、 signature 三段字符串
-            list($header_string, $payload_string, $signature) = $this->tokenCheck($token);
+            list($header_string, $payload_string, $signature) = $this->tokenCheck((string) $token);
 
             list($header, $payload, $alg) = array_values($this->parseParams($header_string, $payload_string));
 
